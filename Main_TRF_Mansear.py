@@ -39,7 +39,7 @@ def TRF_Mansear():
             Sheet = pd.read_excel(xls, sheet_name="Planilha1")
 
             Data = st.date_input('Informe a Data da Transferencia', "today", format= "DD/MM/YYYY", key='inp_data_01')
-            Nome_Balanco = st.selectbox('Informe o Catamarã', ['Mansear 01', 'Mansear 02', 'Mansear 04', 'Mansear 04'], key='inp_nome_01')
+            Nome_Balanco = st.selectbox('Informe o Catamarã', ['Mansear 01', 'Mansear 02', 'Mansear 03', 'Mansear 04'], key='inp_nome_01')
 
             Data = datetime.strftime(Data, '%d/%m/%Y')
             if 'df' not in st.session_state:
