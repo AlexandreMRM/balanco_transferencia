@@ -4,11 +4,11 @@ import Lancar_TRF_Kuara as Lancar_TRF_Kuara
 import pandas as pd
 from datetime import datetime
 import streamlit as st
-
+import xlwings as xl
+import tempfile
 
 def TRF_Kuara():
     #st.set_page_config(layout='wide')
-
     st.markdown('<h1 style="font-size:50px;">Transferencia Kuara</h1>', unsafe_allow_html=True)
     st.markdown("""
                     <style>
@@ -30,48 +30,58 @@ def TRF_Kuara():
                     <style>
         """, unsafe_allow_html=True)
 
-
-
     if 'df' not in st.session_state:
         st.session_state.df = None
 
     Plan = st.file_uploader('Favor inserir a planilha do Excel', type='xlsx', key='inp_file_01')
-    #Plan = pl.load_workbook('Transferencia.xlsx')
-    #Sheet = Plan['Planilha1']
-    #Data = Sheet['G2'].value
 
     if Plan is not None:
         try:
             xls = pd.ExcelFile(Plan)
             Sheet = pd.read_excel(xls, sheet_name="Planilha1") 
-            #Data = datetime.strftime(Data, '%d/%m/%Y')
+            
             Data = st.date_input('Informe a Data da Transferencia', "today", format= "DD/MM/YYYY", key='inp_data_01')
             Nome_Transferencia = 'Kuara'
+
             Data = datetime.strftime(Data, '%d/%m/%Y')
 
             if 'df' not in st.session_state:
                 st.session_state.df = None
 
             if st.button('Carregar Dados da Planilha', key='inp_button_01'):
-                xls = pd.ExcelFile(Plan)
+                #xls = pd.ExcelFile(Plan)
                 df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade'], header=0) 
-                #df = pd.read_excel('Transferencia.xlsx', usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade', 'Num_Transf'], sheet_name=0, header=0)
+                
                 st.session_state.df = df
-                st.dataframe(df, hide_index=True)
+                
         except Exception as e:
             st.error(f'Erro ao Carregar Planilha: {e}')
     else:
         st.warning('Anexe o arquivo da Transferencia')
 
     if st.session_state.df is not None:
-        if st.button('Lançar', key='inp_nome_04'):
-            df = st.session_state.df
+        df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha01')
+        if st.button('Lançar', key='inp_nome_05'):
+            df = df_editado
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
+                temp_file.write(Plan.getvalue())
+                temp_file_path = temp_file.name
+
+            plan_usuario = xl.Book(temp_file_path)
+            Aba = plan_usuario.sheets[0]
+
+            status_placeholder = st.empty()
+            df_placeholder = st.empty()
+            
             for i in range(len(df)):
                 cod = str(df['Cod'][i])
-                st.write("Transferindo", cod, " - ", df['Descricao'][i], "- Aguarde...")
+                status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
                 CodOmie = Produtos.Prod(cod)
+
                 if CodOmie == None:
                     st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
+                    df.loc[i, 'Status'] = 'Erro'
                     continue
                 else:
                     Qtde = str(df['Quantidade'][i])
@@ -80,7 +90,15 @@ def TRF_Kuara():
                     Resultado = Lancar_TRF_Kuara.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
                     if Resultado:    
                         st.success(f"STATUS - OK -{cod} - {df['Descricao'][i]} - Valor - {Valor}")
+                        df.loc[i, 'Status'] = 'Lançado'
+
                     else:
                         st.warning(f"Lançamento Codigo - {cod} Falhou")
+                        df.loc[i, 'Status'] = 'Erro'
+                
+                df_placeholder.dataframe(df, hide_index=True)
+                Aba.range("A2:D1000").clear_contents()
+                Aba.range("A2").value = df.to_numpy()
+            st.session_state.df = df
 
-            st.success("Lançamentos Realizado com Sucesso")
+            st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
