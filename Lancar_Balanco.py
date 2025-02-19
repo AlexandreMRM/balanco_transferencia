@@ -43,7 +43,7 @@ def Lancamento (CodOmie, Data, Qtde, Obs, Valor, max_tentativas=3, delay=5):
             data = response.json()
             return data
         else:
-            print(f"Tentativa {tentativas + 1} falhou com status {response.status_code}. Tentando novamente em {delay} segundos...")
+            st.write(f"Tentativa {tentativas + 1} falhou com status {response.status_code}. Tentando novamente em {delay} segundos...")
             tentativas += 1
             time.sleep(delay)
             
