@@ -8,6 +8,7 @@ import xlwings as xl
 import tempfile
 import openpyxl
 
+
 def TRF_Mansear():
     #st.set_page_config(layout='wide')
     st.markdown('<h1 style="font-size:50px;">Transferencia Mansear</h1>', unsafe_allow_html=True)
@@ -65,49 +66,54 @@ def TRF_Mansear():
         if st.button('Lançar', key='inp_nome_04'):
             df = df_editado
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
-                temp_file.write(Plan.getvalue())
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as temp_file:
+                #temp_file.write(Plan.getvalue())
                 temp_file_path = temp_file.name
+                with open(temp_file_path, 'wb') as f:
+                    f.write(Plan.getvalue())
+            
+            try:
+                #plan_usuario = xl.Book(temp_file_path)
+                plan_usuario = openpyxl.load_workbook(temp_file_path)
+                #Aba = plan_usuario.sheets[0]
+                Aba = plan_usuario.active
+                
+                status_placeholder = st.empty()
+                df_placeholder = st.empty()
 
-            #plan_usuario = xl.Book(temp_file_path)
-            plan_usuario = openpyxl.load_workbook(temp_file_path)
-            #Aba = plan_usuario.sheets[0]
-            Aba = plan_usuario.active
+                for i in range(len(df)):
+                    cod = str(df['Cod'][i])
+                    status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
+                    CodOmie = Produtos.Prod(cod)
 
-            status_placeholder = st.empty()
-            df_placeholder = st.empty()
-
-            for i in range(len(df)):
-                cod = str(df['Cod'][i])
-                status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
-                CodOmie = Produtos.Prod(cod)
-
-                if CodOmie == None:
-                    st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
-                    df.loc[i, 'Status'] = 'Erro'
-                    continue
-                else:
-                    Qtde = str(df['Quantidade'][i])
-                    Valor = Preco.BuscaPreco(cod, Data)
-                    Resultado = Lancar_TRF_Mansear.Lancamento(CodOmie, Data, Qtde, Nome_Balanco, Valor)
-                    if Resultado:
-                        st.success(f"STATUS - OK {cod} - {df['Descricao'][i]} - {Valor}")
-                        df.loc[i, 'Status'] = 'Lançado'
-                        
-                    else:
-                        st.warning(f"Lançamento Codigo - {cod} Falhou")
+                    if CodOmie == None:
+                        st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
                         df.loc[i, 'Status'] = 'Erro'
-                        #st.data_editor(df, use_container_width=True, hide_index=True, key="planilha_atualizada_erro")
-                df_placeholder.dataframe(df, hide_index=True)
-                #Aba.range("A2:D1000").clear_contents()
-                #Aba.range("A2").value = df.to_numpy()
-                for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
-                    for col_idx, value in enumerate(row, start=1):
-                        Aba.cell(row=row_idx, column=col_idx, value=value)
+                        continue
+                    else:
+                        Qtde = str(df['Quantidade'][i])
+                        Valor = Preco.BuscaPreco(cod, Data)
+                        Resultado = Lancar_TRF_Mansear.Lancamento(CodOmie, Data, Qtde, Nome_Balanco, Valor)
+                        if Resultado:
+                            st.success(f"STATUS - OK {cod} - {df['Descricao'][i]} - {Valor}")
+                            df.loc[i, 'Status'] = 'Lançado'
+                            
+                        else:
+                            st.warning(f"Lançamento Codigo - {cod} Falhou")
+                            df.loc[i, 'Status'] = 'Erro'
+                            #st.data_editor(df, use_container_width=True, hide_index=True, key="planilha_atualizada_erro")
+                    df_placeholder.dataframe(df, hide_index=True)
+                    #Aba.range("A2:D1000").clear_contents()
+                    #Aba.range("A2").value = df.to_numpy()
+                    for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+                        for col_idx, value in enumerate(row, start=1):
+                            Aba.cell(row=row_idx, column=col_idx, value=value)
 
-            st.session_state.df = df
+                st.session_state.df = df
 
-            st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+                st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+            except Exception as e:
+                st.error(f'Erro {e} - Planilha não carregada')
             
 
 
