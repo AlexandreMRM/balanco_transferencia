@@ -64,7 +64,7 @@ def Balanco_Kuara():
         if st.button('Lançar', key='inp_nome_05'):
             df = df_editado
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as temp_file:
                 #temp_file.write(Plan.getvalue())
                 temp_file_path = temp_file.name
                 with open(temp_file_path, 'wb') as f:
