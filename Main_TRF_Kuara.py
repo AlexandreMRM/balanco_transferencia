@@ -34,7 +34,7 @@ def TRF_Kuara():
     if 'df' not in st.session_state:
         st.session_state.df = None
 
-    Plan = st.file_uploader('Favor inserir a planilha do Excel', type='xlsx', key='inp_file_01')
+    Plan = st.file_uploader('Favor inserir a planilha do Excel', type='.xlsx', key='inp_file_01')
 
     if Plan is not None:
         try:
