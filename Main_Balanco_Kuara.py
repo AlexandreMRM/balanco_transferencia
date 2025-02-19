@@ -6,6 +6,7 @@ from datetime import datetime
 import streamlit as st
 import xlwings as xl
 import tempfile
+import openpyxl #
 
 def Balanco_Kuara():
     #st.set_page_config(layout='wide')
@@ -51,8 +52,6 @@ def Balanco_Kuara():
             if st.button('Carregar Dados da Planilha', key='inp_button_03'):
 
                 df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Quantidade', 'Status'], header=0)
-                #df = pd.read_excel(xls, sheet_name='Planilha1')
-                #df = pd.read_excel('Balanco_Kuara.xlsx', usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade'], sheet_name=0, header=0)
                 st.session_state.df = df
 
         except Exception as e:
@@ -69,8 +68,10 @@ def Balanco_Kuara():
                 temp_file.write(Plan.getvalue())
                 temp_file_path = temp_file.name
 
-            plan_usuario = xl.Book(temp_file_path)
-            Aba = plan_usuario.sheets[0]
+            #plan_usuario = xl.Book(temp_file_path)
+            plan_usuario = openpyxl.load_workbook(temp_file_path)
+            #Aba = plan_usuario.sheets[0]
+            Aba = plan_usuario.active
 
             status_placeholder = st.empty()
             df_placeholder = st.empty()
@@ -98,9 +99,12 @@ def Balanco_Kuara():
                         df.loc[i, 'Status'] = 'Erro'
 
                 df_placeholder.dataframe(df, hide_index=True)
-                Aba.range("A2:D1000").clear_contents()
-                Aba.range("A2").value = df.to_numpy()
-            
+                #Aba.range("A2:D1000").clear_contents()
+                #Aba.range("A2").value = df.to_numpy()
+                for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+                    for col_idx, value in enumerate(row, start=1):
+                        Aba.cell(row=row_idx, column=col_idx, value=value)
+
             st.session_state.df = df
 
             st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
