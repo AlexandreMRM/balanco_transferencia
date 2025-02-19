@@ -52,7 +52,6 @@ def TRF_Kuara():
             if st.button('Carregar Dados da Planilha', key='inp_button_01'):
                 #xls = pd.ExcelFile(Plan)
                 df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade'], header=0) 
-                
                 st.session_state.df = df
                 
         except Exception as e:
@@ -62,50 +61,55 @@ def TRF_Kuara():
 
     if st.session_state.df is not None:
         df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha01')
-        if st.button('Lançar', key='inp_nome_05'):
+        if st.button('Lançar', key='inp_nome_06'):
             df = df_editado
 
             with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
-                temp_file.write(Plan.getvalue())
+                #temp_file.write(Plan.getvalue())
                 temp_file_path = temp_file.name
-
-            #plan_usuario = xl.Book(temp_file_path)
-            plan_usuario = openpyxl.load_workbook(temp_file_path)
-            #Aba = plan_usuario.sheets[0]
-            Aba = plan_usuario.active
-
-            status_placeholder = st.empty()
-            df_placeholder = st.empty()
+                with open(temp_file_path, 'wb') as f:
+                    f.write(Plan.getvalue())
             
-            for i in range(len(df)):
-                cod = str(df['Cod'][i])
-                status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
-                CodOmie = Produtos.Prod(cod)
+            try:
+                #plan_usuario = xl.Book(temp_file_path)
+                plan_usuario = openpyxl.load_workbook(temp_file_path)
+                #Aba = plan_usuario.sheets[0]
+                Aba = plan_usuario.active
 
-                if CodOmie == None:
-                    st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
-                    df.loc[i, 'Status'] = 'Erro'
-                    continue
-                else:
-                    Qtde = str(df['Quantidade'][i])
-                    Obs = Nome_Transferencia
-                    Valor = Preco.BuscaPreco(cod, Data)
-                    Resultado = Lancar_TRF_Kuara.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
-                    if Resultado:    
-                        st.success(f"STATUS - OK -{cod} - {df['Descricao'][i]} - Valor - {Valor}")
-                        df.loc[i, 'Status'] = 'Lançado'
-
-                    else:
-                        st.warning(f"Lançamento Codigo - {cod} Falhou")
-                        df.loc[i, 'Status'] = 'Erro'
+                status_placeholder = st.empty()
+                df_placeholder = st.empty()
                 
-                df_placeholder.dataframe(df, hide_index=True)
-                #Aba.range("A2:D1000").clear_contents()
-                #Aba.range("A2").value = df.to_numpy()
-                for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
-                    for col_idx, value in enumerate(row, start=1):
-                        Aba.cell(row=row_idx, column=col_idx, value=value)
+                for i in range(len(df)):
+                    cod = str(df['Cod'][i])
+                    status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
+                    CodOmie = Produtos.Prod(cod)
 
-            st.session_state.df = df
+                    if CodOmie == None:
+                        st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
+                        df.loc[i, 'Status'] = 'Erro'
+                        continue
+                    else:
+                        Qtde = str(df['Quantidade'][i])
+                        Obs = Nome_Transferencia
+                        Valor = Preco.BuscaPreco(cod, Data)
+                        Resultado = Lancar_TRF_Kuara.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
+                        if Resultado:    
+                            st.success(f"STATUS - OK -{cod} - {df['Descricao'][i]} - Valor - {Valor}")
+                            df.loc[i, 'Status'] = 'Lançado'
 
-            st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+                        else:
+                            st.warning(f"Lançamento Codigo - {cod} Falhou")
+                            df.loc[i, 'Status'] = 'Erro'
+                    
+                    df_placeholder.dataframe(df, hide_index=True)
+                    #Aba.range("A2:D1000").clear_contents()
+                    #Aba.range("A2").value = df.to_numpy()
+                    for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+                        for col_idx, value in enumerate(row, start=1):
+                            Aba.cell(row=row_idx, column=col_idx, value=value)
+
+                st.session_state.df = df
+
+                st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+            except Exception as e:
+                st.error(f'Erro {e} - Planilha não carregada')
