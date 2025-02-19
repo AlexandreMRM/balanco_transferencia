@@ -4,6 +4,8 @@ import Lancar_Balanco as Lancar_Balanco
 import pandas as pd
 from datetime import datetime
 import streamlit as st
+import xlwings as xl
+import tempfile
 
 def Balanco_Kuara():
     #st.set_page_config(layout='wide')
@@ -28,38 +30,59 @@ def Balanco_Kuara():
                     <style>
         """, unsafe_allow_html=True)
 
-    Plan = st.file_uploader('Favor inserir a planilha do Excel', type='xlsx', key='inp_file_01')
-
-    if Plan is not None:
-        xls = pd.ExcelFile(Plan)
-        df = pd.read_excel(xls, sheet_name='Planilha1')
-    else:
-        st.warning('Favor Carregar a planilha')
-
-    Data = st.date_input('Informe a Data do Balanço', "today", format= "DD/MM/YYYY", key='inp_data_01')
-    Nome_Balanco = st.text_input('Informe o Codigo do Balanço - Ex. K01012025')
-
-    Data = datetime.strftime(Data, '%d/%m/%Y')
-
     if 'df' not in st.session_state:
         st.session_state.df = None
 
-    if st.button('Carregar Dados da Planilha', key='inp_button_01'):
-        #df = pd.read_excel(xls, sheet_name='Planilha1')
-        #df = pd.read_excel('Balanco_Kuara.xlsx', usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade'], sheet_name=0, header=0)
-        st.session_state.df = df
-        df['Cod'] = df['Cod'].astype(str)
-        st.dataframe(df, hide_index=True)
+    Plan = st.file_uploader('Favor inserir a planilha do Excel', type='xlsx', key='inp_file_03')
 
+    if Plan is not None:
+        try:
+            xls = pd.ExcelFile(Plan)
+            Sheet = pd.read_excel(xls, sheet_name='Planilha1')
+
+            Data = st.date_input('Informe a Data do Balanço', "today", format= "DD/MM/YYYY", key='inp_data_03')
+            Nome_Balanco = st.text_input('Informe o Codigo do Balanço - Ex. K01012025')
+
+            Data = datetime.strftime(Data, '%d/%m/%Y')
+
+            if 'df' not in st.session_state:
+                st.session_state.df = None
+
+            if st.button('Carregar Dados da Planilha', key='inp_button_03'):
+
+                df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Quantidade', 'Status'], header=0)
+                #df = pd.read_excel(xls, sheet_name='Planilha1')
+                #df = pd.read_excel('Balanco_Kuara.xlsx', usecols=['Cod', 'Descricao', 'Unidade', 'Quantidade'], sheet_name=0, header=0)
+                st.session_state.df = df
+
+        except Exception as e:
+            st.error(f'Erro ao Carregar Planilha: {e}')
+    else:
+        st.warning('Anexe o arquivo do Balanço')
+    
     if st.session_state.df is not None:
-        if st.button('Lançar', key='inp_nome_lancar'):
-            df = st.session_state.df
+        df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha03')
+        if st.button('Lançar', key='inp_nome_05'):
+            df = df_editado
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
+                temp_file.write(Plan.getvalue())
+                temp_file_path = temp_file.name
+
+            plan_usuario = xl.Book(temp_file_path)
+            Aba = plan_usuario.sheets[0]
+
+            status_placeholder = st.empty()
+            df_placeholder = st.empty()
+        
             for i in range(len(df)):
                 cod = str(df['Cod'][i])
-                st.write("Lançando ", cod, " - ", df['Descricao'][i], "Aguarde...")
+                status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
                 CodOmie = Produtos.Prod(cod)
+
                 if CodOmie == None:
-                    st.warning("Produto não encontrado no Omie")
+                    st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
+                    df.loc[i, 'Status'] = 'Erro'
                     continue
                 else:
                     Qtde = str(df['Quantidade'][i])
@@ -68,10 +91,19 @@ def Balanco_Kuara():
                     resultado = Lancar_Balanco.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
                     if resultado:
                         st.success(f"STATUS - OK {cod} - {df['Descricao'][i]} Lançado com Sucesso")
+                        df.loc[i, 'Status'] = 'Lançado'
+
                     else:
                         st.warning(f"Lançamento Código - {cod} Falhou")
+                        df.loc[i, 'Status'] = 'Erro'
 
-            st.success("Lançamentos Realizado com Sucesso")
+                df_placeholder.dataframe(df, hide_index=True)
+                Aba.range("A2:D1000").clear_contents()
+                Aba.range("A2").value = df.to_numpy()
+            
+            st.session_state.df = df
+
+            st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
 
 
 
