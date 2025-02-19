@@ -6,6 +6,7 @@ from datetime import datetime
 import streamlit as st
 import xlwings as xl
 import tempfile
+import openpyxl
 
 def TRF_Mansear():
     #st.set_page_config(layout='wide')
@@ -68,8 +69,10 @@ def TRF_Mansear():
                 temp_file.write(Plan.getvalue())
                 temp_file_path = temp_file.name
 
-            plan_usuario = xl.Book(temp_file_path)
-            Aba = plan_usuario.sheets[0]
+            #plan_usuario = xl.Book(temp_file_path)
+            plan_usuario = openpyxl.load_workbook(temp_file_path)
+            #Aba = plan_usuario.sheets[0]
+            Aba = plan_usuario.active
 
             status_placeholder = st.empty()
             df_placeholder = st.empty()
@@ -96,8 +99,11 @@ def TRF_Mansear():
                         df.loc[i, 'Status'] = 'Erro'
                         #st.data_editor(df, use_container_width=True, hide_index=True, key="planilha_atualizada_erro")
                 df_placeholder.dataframe(df, hide_index=True)
-                Aba.range("A2:D1000").clear_contents()
-                Aba.range("A2").value = df.to_numpy()
+                #Aba.range("A2:D1000").clear_contents()
+                #Aba.range("A2").value = df.to_numpy()
+                for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+                    for col_idx, value in enumerate(row, start=1):
+                        Aba.cell(row=row_idx, column=col_idx, value=value)
 
             st.session_state.df = df
 
