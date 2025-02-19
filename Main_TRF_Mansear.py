@@ -4,6 +4,8 @@ import Lancar_TRF_Mansear as Lancar_TRF_Mansear
 import pandas as pd
 from datetime import datetime
 import streamlit as st
+import xlwings as xl
+import tempfile
 
 def TRF_Mansear():
     #st.set_page_config(layout='wide')
@@ -42,29 +44,44 @@ def TRF_Mansear():
             Nome_Balanco = st.selectbox('Informe o Catamarã', ['Mansear 01', 'Mansear 02', 'Mansear 03', 'Mansear 04'], key='inp_nome_01')
 
             Data = datetime.strftime(Data, '%d/%m/%Y')
+
             if 'df' not in st.session_state:
                 st.session_state.df = None
 
             if st.button('Carregar Dados da Planilha', key='inp_button_01'):
-                xls = pd.ExcelFile(Plan)
-                df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Quantidade'], header=0)
-                #df = pd.read_excel('Transferencia_Mansear.xlsx', usecols=['Cod', 'Descricao', 'Quantidade'], sheet_name=0, header=0)
+                #xls = pd.ExcelFile(Plan)
+                df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Quantidade', 'Status'], header=0)
+                
                 st.session_state.df = df
-                st.dataframe(df, hide_index=True)
+                
         except Exception as e:
             st.error(f'Erro ao Carregar Planilha: {e}')
     else:
         st.warning('Anexe o arquivo da Transferencia')
 
     if st.session_state.df is not None:
+        df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha')
         if st.button('Lançar', key='inp_nome_04'):
-            df = st.session_state.df
+            df = df_editado
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix="xlsx") as temp_file:
+                temp_file.write(Plan.getvalue())
+                temp_file_path = temp_file.name
+
+            plan_usuario = xl.Book(temp_file_path)
+            Aba = plan_usuario.sheets[0]
+
+            status_placeholder = st.empty()
+            df_placeholder = st.empty()
+
             for i in range(len(df)):
                 cod = str(df['Cod'][i])
-                st.write("Lançando ", cod, " - ", df['Descricao'][i], "- Aguarde...")
+                status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
                 CodOmie = Produtos.Prod(cod)
+
                 if CodOmie == None:
                     st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
+                    df.loc[i, 'Status'] = 'Erro'
                     continue
                 else:
                     Qtde = str(df['Quantidade'][i])
@@ -72,9 +89,19 @@ def TRF_Mansear():
                     Resultado = Lancar_TRF_Mansear.Lancamento(CodOmie, Data, Qtde, Nome_Balanco, Valor)
                     if Resultado:
                         st.success(f"STATUS - OK {cod} - {df['Descricao'][i]} - {Valor}")
+                        df.loc[i, 'Status'] = 'Lançado'
+                        
                     else:
                         st.warning(f"Lançamento Codigo - {cod} Falhou")
+                        df.loc[i, 'Status'] = 'Erro'
+                        #st.data_editor(df, use_container_width=True, hide_index=True, key="planilha_atualizada_erro")
+                df_placeholder.dataframe(df, hide_index=True)
+                Aba.range("A2:D1000").clear_contents()
+                Aba.range("A2").value = df.to_numpy()
+
+            st.session_state.df = df
 
             st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+            
 
 
