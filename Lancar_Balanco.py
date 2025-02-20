@@ -37,15 +37,27 @@ def Lancamento (CodOmie, Data, Qtde, Obs, Valor, max_tentativas=3, delay=5):
             }
     tentativas = 0
     while tentativas < max_tentativas:
-        response = requests.post(url, headers=headers, json=payload)
+        try:
+            response = requests.post(url, headers=headers, json=payload)
 
-        if response.status_code == 200:
-            data = response.json()
-            return data
-        else:
-            st.write(f"Tentativa {tentativas + 1} falhou com status {response.status_code}. Tentando novamente em {delay} segundos...")
-            tentativas += 1
-            time.sleep(delay)
+            if response.status_code == 200:
+                data = response.json()
+                return data
+            else:
+                st.write(f"Tentativa {tentativas + 1} falhou com status {response.status_code}. Tentando novamente em {delay} segundos...")
+                
+        except requests.exceptions.Timeout:
+            st.warning(f'Tentativa {tentativas + 1}: O servidor do OMIE demorou muito pra responder')
+        
+        except requests.exceptions.ConnectionError:
+            st.warning(f'Falha na conexão com OMIE: Tentativa {tentativas + 1}')
+
+        except requests.exceptions.RequestException as e:
+            st.error(f'Erro inesperado: {e}')
+
+        tentativas += 1
+        time.sleep(delay)
+
             
     st.warning("Erro ao realizar Lancamento após várias tentativas, TENTE NOVAMENTE")
     return None
