@@ -4,9 +4,7 @@ import Lancar_Balanco as Lancar_Balanco
 import pandas as pd
 from datetime import datetime
 import streamlit as st
-import xlwings as xl
-import tempfile
-import openpyxl #
+import planilha_sheet
 
 def Balanco_Kuara():
     #st.set_page_config(layout='wide')
@@ -33,86 +31,58 @@ def Balanco_Kuara():
 
     if 'df' not in st.session_state:
         st.session_state.df = None
+    if 'df_editado' not in st.session_state:
+        st.session_state.df_editado = None
 
-    Plan = st.file_uploader('Favor inserir a planilha do Excel', type='xlsx', key='inp_file_03')
 
-    if Plan is not None:
-        try:
-            xls = pd.ExcelFile(Plan)
-            Sheet = pd.read_excel(xls, sheet_name='Planilha1')
+    Data = st.date_input('Informe a Data do Balanço', "today", format= "DD/MM/YYYY", key='inp_data_03')
+    Nome_Balanco = st.text_input('Informe o Codigo do Balanço - Ex. K01012025')
 
-            Data = st.date_input('Informe a Data do Balanço', "today", format= "DD/MM/YYYY", key='inp_data_03')
-            Nome_Balanco = st.text_input('Informe o Codigo do Balanço - Ex. K01012025')
-
-            Data = datetime.strftime(Data, '%d/%m/%Y')
-
-            if 'df' not in st.session_state:
-                st.session_state.df = None
-
-            if st.button('Carregar Dados da Planilha', key='inp_button_03'):
-
-                df = pd.read_excel(xls, sheet_name="Planilha1", usecols=['Cod', 'Descricao', 'Quantidade', 'Status'], header=0)
-                st.session_state.df = df
-
-        except Exception as e:
-            st.error(f'Erro ao Carregar Planilha: {e}')
-    else:
-        st.warning('Anexe o arquivo do Balanço')
-    
+    Data = Data.strftime('%d/%m/%Y')
+        
+    if st.button('Carregar Dados do Balanço', key='inp_button_03'):
+        st.session_state.df = planilha_sheet.planilha()
+        
     if st.session_state.df is not None:
-        df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha03')
-        if st.button('Lançar', key='inp_nome_05'):
-            df = df_editado
+        df_editado = st.data_editor(st.session_state.df, use_container_width=True, hide_index=True, key='editar_planilha04')
+        st.session_state.df_editado = df_editado
+    
+    if st.session_state.df_editado is not None and st.button('Lançar', key='inp_nome_05'):
+        df = st.session_state.df_editado
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as temp_file:
-                #temp_file.write(Plan.getvalue())
-                temp_file_path = temp_file.name
-                with open(temp_file_path, 'wb') as f:
-                    f.write(Plan.getvalue())
-
-            try:
-                #plan_usuario = xl.Book(temp_file_path)
-                plan_usuario = openpyxl.load_workbook(temp_file_path)
-                #Aba = plan_usuario.sheets[0]
-                Aba = plan_usuario.active
-
-                status_placeholder = st.empty()
-                df_placeholder = st.empty()
+        status_placeholder = st.empty()
+        df_placeholder = st.empty()
             
-                for i in range(len(df)):
-                    cod = str(df['Cod'][i])
-                    status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
-                    CodOmie = Produtos.Prod(cod)
+        for i in range(len(df)):
+            cod = str(df['Cod'][i])
+            
+            status_placeholder.write(f"Lançando {cod} - Descrição {df['Descricao'][i]}...")
+            CodOmie = Produtos.Prod(cod)
 
-                    if CodOmie == None:
-                        st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
-                        df.loc[i, 'Status'] = 'Erro'
-                        continue
-                    else:
-                        Qtde = str(df['Quantidade'][i])
-                        Obs = Nome_Balanco
-                        Valor = Preco.BuscaPreco(cod, Data)
-                        resultado = Lancar_Balanco.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
-                        if resultado:
-                            st.success(f"STATUS - OK {cod} - {df['Descricao'][i]} Lançado com Sucesso")
-                            df.loc[i, 'Status'] = 'Lançado'
+            if CodOmie == None:
+                st.warning(f"Produto {df['Descricao'][i]} não encontrado no Omie")
+                df.loc[i, 'Status'] = 'Erro'
+                continue
+            else:
+                Qtde = str(df['Quantidade'][i])
+                Obs = Nome_Balanco
+                Valor = Preco.BuscaPreco(cod, Data)
+                resultado = Lancar_Balanco.Lancamento(CodOmie, Data, Qtde, Obs, Valor)
+                if resultado:
+                    st.success(f"STATUS - OK - {cod} - {df['Descricao'][i]} Lançado com Sucesso")
+                    df.loc[i, 'Status'] = 'Lançado'
 
-                        else:
-                            st.warning(f"Lançamento Código - {cod} Falhou")
-                            df.loc[i, 'Status'] = 'Erro'
+                else:
+                    st.warning(f"Lançamento Código - {cod} Falhou")
+                    df.loc[i, 'Status'] = 'Erro'
 
-                    df_placeholder.dataframe(df, hide_index=True)
-                    #Aba.range("A2:D1000").clear_contents()
-                    #Aba.range("A2").value = df.to_numpy()
-                    for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
-                        for col_idx, value in enumerate(row, start=1):
-                            Aba.cell(row=row_idx, column=col_idx, value=value)
+                df_placeholder.data_editor(df, hide_index=True, use_container_width=True)
+                planilha_sheet.salvar_planilha(df)
 
                 st.session_state.df = df
 
-                st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
-            except Exception as e:
-                st.error(f'Erro {e} - Planilha não carregada')
+        st.success("Processo Finalizado - VERIFICAR LANÇAMENTOS")
+
 
 
 
